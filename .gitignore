@@ -1,0 +1,5 @@
+.idea/
+config.json
+credentials.json
+lifx_token.txt
+token.json
