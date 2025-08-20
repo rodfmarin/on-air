@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 
 	"on-air/auth"
@@ -82,16 +83,37 @@ func (m *Manager) LoadSchedule() Schedule {
 	now := time.Now().UTC()
 	to := now.Add(time.Duration(m.Days) * 24 * time.Hour)
 
-	resp, err := calendarutil.QueryFreeBusy(
-		ctx,
-		svc,
-		m.CalID,
-		now.Format(time.RFC3339),
-		to.Format(time.RFC3339),
-	)
-
-	if err != nil {
-		log.Fatalf("freebusy query: %v", err)
+	var resp *calendar.FreeBusyResponse
+	var lastErr error
+	maxAttempts := 3
+	backoff := 1 * time.Second
+	maxBackoff := 8 * time.Second
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		resp, lastErr = calendarutil.QueryFreeBusy(
+			ctx,
+			svc,
+			m.CalID,
+			now.Format(time.RFC3339),
+			to.Format(time.RFC3339),
+		)
+		if lastErr == nil {
+			break
+		}
+		// Check for 500-level error
+		if apiErr, ok := lastErr.(*googleapi.Error); ok && apiErr.Code >= 500 && apiErr.Code <= 599 {
+			fmt.Printf("FreeBusy query attempt %d failed with 5xx error (%d): %v. Retrying in %v...\n", attempt, apiErr.Code, apiErr, backoff)
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
+		}
+		// Not a 5xx error, break and handle as usual
+		break
+	}
+	if lastErr != nil {
+		log.Fatalf("freebusy query: %v", lastErr)
 	}
 	for id, cal := range resp.Calendars {
 		if len(cal.Busy) == 0 {
