@@ -1,5 +1,4 @@
-# On-Air 
-<img src="./resources/icon.svg" alt="on-air" width="175" height="175"> 
+<img src="./resources/icon.svg" alt="on-air" width="175" height="175">
 
 --- 
 
