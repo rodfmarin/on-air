@@ -9,11 +9,10 @@ import (
 	"net/http"
 )
 
-const baseURL = "https://api.lifx.com/v1/"
-
 // Client holds the Lifx API token.
 type Client struct {
-	Token string
+	Token   string
+	BaseURL string
 }
 
 // Light represents a Lifx light (partial fields).
@@ -27,12 +26,12 @@ type Light struct {
 
 // NewClient creates a new Lifx API client.
 func NewClient(token string) *Client {
-	return &Client{Token: token}
+	return &Client{Token: token, BaseURL: "https://api.lifx.com/v1/"}
 }
 
 // ListLights returns all lights for the account.
 func (c *Client) ListLights() ([]Light, error) {
-	url := baseURL + "lights/all"
+	url := c.BaseURL + "lights/all"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -61,7 +60,7 @@ func (c *Client) ListLights() ([]Light, error) {
 
 // TogglePower toggles the power state of a light by selector (e.g., "id:xxxx" or "label:MyLight").
 func (c *Client) TogglePower(selector string) error {
-	url := baseURL + "lights/" + selector + "/toggle"
+	url := c.BaseURL + "lights/" + selector + "/toggle"
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return err
@@ -86,7 +85,7 @@ func (c *Client) TogglePower(selector string) error {
 
 // SetState sets the state of a light (color, brightness, etc.).
 func (c *Client) SetState(selector string, state map[string]interface{}) error {
-	url := baseURL + "lights/" + selector + "/state"
+	url := c.BaseURL + "lights/" + selector + "/state"
 	bodyBytes, err := json.Marshal(state)
 	if err != nil {
 		return err

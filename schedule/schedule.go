@@ -167,7 +167,7 @@ type Action struct {
 // ActionWorker handles REST calls
 func ActionWorker(ch <-chan Action, lifxToken, lifxLightID, lifxLightLabel, lifxBusyColor, lifxFreeColor string) {
 	for action := range ch {
-		lc := lifxutil.Client{Token: lifxToken}
+		lc := lifxutil.NewClient(lifxToken)
 		light := lifxutil.Light{ID: lifxLightID, Label: lifxLightLabel}
 
 		if action.State == Busy {

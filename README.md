@@ -1,4 +1,4 @@
-<img src="./resources/icon.svg" alt="on-air" width="175" height="175">
+<img src="./resources/icon.svg" alt="on-air">
 
 ## A LIFX Smart Bulb Utility for reflecting your Free/Busy Google Calendar Status
 
