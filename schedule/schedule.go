@@ -113,7 +113,9 @@ func (m *Manager) LoadSchedule() Schedule {
 		break
 	}
 	if lastErr != nil {
+		// The query failed for some reason
 		log.Printf("freebusy query: %v", lastErr)
+		// Return an empty schedule to just keep the system running
 		return Schedule{}
 	}
 	for id, cal := range resp.Calendars {
