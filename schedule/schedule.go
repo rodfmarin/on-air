@@ -113,7 +113,8 @@ func (m *Manager) LoadSchedule() Schedule {
 		break
 	}
 	if lastErr != nil {
-		log.Fatalf("freebusy query: %v", lastErr)
+		log.Printf("freebusy query: %v", lastErr)
+		return Schedule{}
 	}
 	for id, cal := range resp.Calendars {
 		if len(cal.Busy) == 0 {
