@@ -1,0 +1,115 @@
+name: CI (Go)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+env:
+  APP_NAME: on-air
+  MAIN_PKG: .
+  GOFLAGS: -trimpath
+  CGO_ENABLED: "0"                   # cross-compile friendly
+
+jobs:
+  test:
+    name: Test (Go 1.24.x)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+
+      - name: Download deps
+        run: go mod download
+
+      - name: Run tests (all packages)
+        run: go test -v ./...
+
+  build:
+    name: Build Matrix
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            ext: ""
+          - os: linux
+            arch: arm64
+            ext: ""
+          - os: darwin
+            arch: amd64
+            ext: ""
+          - os: darwin
+            arch: arm64
+            ext: ""
+          - os: windows
+            arch: amd64
+            ext: .exe
+          - os: windows
+            arch: arm64
+            ext: .exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # so we can read tags/commit for version
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+
+      - name: Calc version string
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Prefer tag if present, else short SHA
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            TAG="$(git describe --tags --abbrev=0)"
+            COUNT="$(git rev-list "${TAG}..HEAD" --count)"
+            if [ "$COUNT" -eq 0 ]; then
+              VERSION="$TAG"
+            else
+              VERSION="${TAG}+${COUNT}-g$(git rev-parse --short HEAD)"
+            fi
+          else
+            VERSION="0.0.0-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build ${{ env.APP_NAME }} for ${{ matrix.os }}-${{ matrix.arch }}
+        shell: bash
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          OUT="dist/${APP_NAME}_${{ steps.ver.outputs.version }}_${GOOS}_${GOARCH}${{ matrix.ext }}"
+          LDFLAGS="-s -w -X main.version=${{ steps.ver.outputs.version }}"
+          go build -v -o "${OUT}" -ldflags "${LDFLAGS}" ${GOFLAGS} "${MAIN_PKG}"
+          # simple smoke test: print usage/version if it supports --version
+          if "${OUT}" --version >/dev/null 2>&1; then "${OUT}" --version || true; fi
+          echo "Built ${OUT}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}_${{ steps.ver.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}
+          path: dist/${{ env.APP_NAME }}_${{ steps.ver.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}${{ matrix.ext }}
+          if-no-files-found: error
+          retention-days: 14
