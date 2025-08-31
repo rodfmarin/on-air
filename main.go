@@ -4,8 +4,12 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"on-air/configutil"
+	"on-air/lifxutil"
 	"on-air/schedule"
 )
 
@@ -81,6 +85,29 @@ func main() {
 	go schedule.Reloader(manager)
 	go schedule.ActionWorker(actionCh, cfg.LifxToken, cfg.LifxLightID, cfg.LifxLightLabel, cfg.LifxBusyColor, cfg.LifxFreeColor)
 	go schedule.Executor(manager, actionCh)
+
+	// Signal handling for graceful shutdown
+	// TODO: make this cleaner
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		log.Printf("Received signal %v, setting light to free state and exiting...", sig)
+		lifxc := lifxutil.NewClient(cfg.LifxToken)
+		if err != nil {
+			log.Printf("Failed to create Lifx client: %v", err)
+			os.Exit(1)
+		}
+		light := lifxutil.Light{
+			ID:    cfg.LifxLightID,
+			Label: cfg.LifxLightLabel,
+		}
+		err = lifxc.SetFree(light, cfg.LifxFreeColor)
+		if err != nil {
+			log.Printf("Failed to set light to free state: %v", err)
+		}
+		os.Exit(0)
+	}()
 
 	select {} // block forever
 }

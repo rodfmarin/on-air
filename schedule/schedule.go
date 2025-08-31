@@ -73,12 +73,13 @@ func (m *Manager) LoadSchedule() Schedule {
 
 	client, err := auth.GetClient(ctx, m.CredsPath, m.TokenPath, FreeBusyScope)
 	if err != nil {
-		fmt.Println(err)
-		log.Fatalf("auth client: %v", err)
+		log.Printf("auth client: %v", err)
+		return Schedule{} // Don't exit, just return empty schedule
 	}
 	svc, err := calendar.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		log.Fatalf("calendar service: %v", err)
+		log.Printf("calendar service: %v", err)
+		return Schedule{} // Don't exit, just return empty schedule
 	}
 	now := time.Now().UTC()
 	to := now.Add(time.Duration(m.Days) * 24 * time.Hour)
